@@ -1,0 +1,64 @@
+version: '2.4'
+
+x-default: &default
+  networks:
+    - efk-net
+  # cpus: 0.5
+  # mem_limit: 500M
+  # restart: always
+  # init: true
+  # privileged: true
+  # stdin_open: true
+  # tty: true
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10M"
+      max-file: "3"
+
+volumes:
+  elasticsearch_data:
+
+networks:
+  efk-net:
+
+services:
+  elasticsearch:
+    <<: *default
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.8.1
+    container_name: elasticsearch
+    hostname: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - 127.0.0.1:9200:9200
+  
+  kibana:
+    <<: *default
+    image: docker.elastic.co/kibana/kibana:7.8.1
+    ports:
+      - 127.0.0.1:5601:5601
+    container_name: kibana
+    hostname: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    # volumes:
+    #   - ./kibana.yml:/usr/share/kibana/config/kibana.ym
+
+  fluentd:
+    <<: *default
+    build: ./fluentd
+    container_name: fluentd
+    hostname: fluentd
+    volumes:
+      - ./fluentd/conf:/fluentd/etc
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
